@@ -80,4 +80,6 @@ Edit `locales/en.json` and `locales/zh.json`. Keys under `speech.lines` are the 
 
 ## License
 
-Source code in this repository is provided as-is for personal and educational use. Live2D Cubism and third-party libraries are subject to their own licenses. Do not redistribute Sanrio character assets or commercialize this project without proper rights from the rights holders.
+Project source code is licensed under the [MIT License](LICENSE).
+
+Live2D Cubism, bundled dependencies, and Sanrio character assets (model, images, names) are **not** covered by this license and remain subject to their respective terms. Do not redistribute those assets or use this project commercially without permission from the rights holders.

@@ -1,0 +1,29 @@
+{
+  "app": {
+    "title": "Kuromi Desktop Pet"
+  },
+  "tray": {
+    "tooltip": "Kuromi Desktop Pet",
+    "autoLaunch": "Launch at login",
+    "language": "Language",
+    "langZh": "中文",
+    "langEn": "English",
+    "quit": "Quit"
+  },
+  "speech": {
+    "welcome": "Kuromi's here! Drag me to move, click me to chat.",
+    "lines": [
+      "Hmph—today I'll be cute AND rebellious!",
+      "Don't underestimate me—I'm Lady Kuromi!",
+      "My Melody? I-I wasn't thinking about her at all!",
+      "A little mischief can still be sweet.",
+      "You came to see me again? Good taste.",
+      "Wanna pull a harmless prank together today?",
+      "Don't poke me too much—I'll get shy.",
+      "My cuteness is a limited edition, got it?"
+    ]
+  },
+  "errors": {
+    "loadScript": "Failed to load script: {src}"
+  }
+}

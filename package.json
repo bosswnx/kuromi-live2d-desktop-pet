@@ -33,6 +33,7 @@
     "files": [
       "dist/**/*",
       "electron/**/*",
+      "locales/**/*",
       "package.json",
       "!dist/kuromi/*.cmo3",
       "!dist/kuromi/kuromi.4096/**"

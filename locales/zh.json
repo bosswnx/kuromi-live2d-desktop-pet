@@ -1,0 +1,29 @@
+{
+  "app": {
+    "title": "Kuromi 桌宠"
+  },
+  "tray": {
+    "tooltip": "Kuromi 桌宠",
+    "autoLaunch": "开机自启",
+    "language": "语言",
+    "langZh": "中文",
+    "langEn": "English",
+    "quit": "退出"
+  },
+  "speech": {
+    "welcome": "Kuromi 到啦！拖动我换位置，点我聊两句。",
+    "lines": [
+      "哼哼，今天也要可爱又叛逆！",
+      "别小看我，我可是 Kuromi 大人哦。",
+      "My Melody？才、才没有在意她呢！",
+      "坏坏的心情，也可以很甜。",
+      "你又来看我啦？算你有眼光。",
+      "今天要一起做点恶作剧吗？",
+      "别戳太多次啦，我会害羞的。",
+      "本大人的可爱，是限量版的！"
+    ]
+  },
+  "errors": {
+    "loadScript": "无法加载脚本：{src}"
+  }
+}

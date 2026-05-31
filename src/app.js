@@ -1,6 +1,7 @@
 import "./styles.css";
 import * as PIXI from "pixi.js";
 import cubismCoreUrl from "live2dcubismcore/live2dcubismcore.min.js?url";
+import { initI18n, pickSpeechLine, t } from "./i18n.js";
 
 window.PIXI = PIXI;
 
@@ -19,17 +20,6 @@ const PARAMS = {
   mouthForm: "ParamMouthForm",
   cheek: "ParamCheek"
 };
-
-const LINES = [
-  "哼哼，今天也要可爱又叛逆！",
-  "别小看我，我可是 Kuromi 大人哦。",
-  "My Melody？才、才没有在意她呢！",
-  "坏坏的心情，也可以很甜。",
-  "你又来看我啦？算你有眼光。",
-  "今天要一起做点恶作剧吗？",
-  "别戳太多次啦，我会害羞的。",
-  "本大人的可爱，是限量版的！",
-];
 
 const canvas = document.querySelector("#stage");
 const speech = document.querySelector("#speech");
@@ -76,7 +66,7 @@ function setParameter(id, value, weight = 1) {
   }
 }
 
-function say(text = pickLine(), duration = 4200) {
+function say(text = pickSpeechLine(), duration = 4200) {
   speech.textContent = text;
   speech.classList.add("visible");
   speakingUntil = performance.now() + duration;
@@ -87,16 +77,12 @@ function say(text = pickLine(), duration = 4200) {
   }, duration);
 }
 
-function pickLine() {
-  return LINES[Math.floor(Math.random() * LINES.length)];
-}
-
 function loadScript(src) {
   return new Promise((resolve, reject) => {
     const script = document.createElement("script");
     script.src = src;
     script.onload = resolve;
-    script.onerror = () => reject(new Error(`Failed to load ${src}`));
+    script.onerror = () => reject(new Error(t("errors.loadScript", { src })));
     document.head.appendChild(script);
   });
 }
@@ -185,6 +171,7 @@ function updatePassthrough(clientX, clientY) {
 }
 
 async function boot() {
+  await initI18n();
   await loadScript(cubismCoreUrl);
   const { Live2DModel } = await import("pixi-live2d-display/cubism4");
 
@@ -194,7 +181,7 @@ async function boot() {
   resize();
   log("info", "model loaded");
 
-  say("Kuromi 到啦！拖动我换位置，点我聊两句。", 5200);
+  say(t("speech.welcome"), 5200);
   scheduleRandomLine();
 
   window.setInterval(updateCursorTarget, 33);

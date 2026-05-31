@@ -1,5 +1,7 @@
 const { app, BrowserWindow, ipcMain, screen, Tray, Menu, nativeImage } = require("electron");
 const path = require("node:path");
+const { resolveLocale, normalizeLocale, t } = require("./i18n.cjs");
+const { readLocale, writeLocale } = require("./settings.cjs");
 
 const devServerUrl = process.env.KUROMI_DEV_SERVER ? "http://127.0.0.1:5173" : "";
 const debug = Boolean(process.env.KUROMI_DEBUG);
@@ -11,6 +13,25 @@ const trayIconPath = path.join(__dirname, "assets", "tray.png");
 
 let mainWindow;
 let tray;
+let currentLocale = "zh";
+
+function broadcastLocale() {
+  mainWindow?.webContents.send("locale:changed", currentLocale);
+}
+
+function setLocale(locale) {
+  const next = normalizeLocale(locale);
+
+  if (next === currentLocale) {
+    return;
+  }
+
+  currentLocale = next;
+  writeLocale(app, currentLocale);
+  tray?.setToolTip(t(currentLocale, "tray.tooltip"));
+  tray?.setContextMenu(buildTrayMenu());
+  broadcastLocale();
+}
 
 function createWindow() {
   const { workArea } = screen.getPrimaryDisplay();
@@ -76,32 +97,49 @@ function setAutoLaunch(enabled) {
   app.setLoginItemSettings({ openAtLogin: enabled });
 }
 
+function buildTrayMenu() {
+  return Menu.buildFromTemplate([
+    {
+      label: t(currentLocale, "tray.autoLaunch"),
+      type: "checkbox",
+      checked: isAutoLaunchEnabled(),
+      click: (item) => {
+        setAutoLaunch(item.checked);
+      }
+    },
+    {
+      label: t(currentLocale, "tray.language"),
+      submenu: [
+        {
+          label: t(currentLocale, "tray.langZh"),
+          type: "radio",
+          checked: currentLocale === "zh",
+          click: () => setLocale("zh")
+        },
+        {
+          label: t(currentLocale, "tray.langEn"),
+          type: "radio",
+          checked: currentLocale === "en",
+          click: () => setLocale("en")
+        }
+      ]
+    },
+    { type: "separator" },
+    {
+      label: t(currentLocale, "tray.quit"),
+      click: () => {
+        app.quit();
+      }
+    }
+  ]);
+}
+
 function createTray() {
   tray = new Tray(nativeImage.createFromPath(trayIconPath));
 
-  tray.setToolTip("Kuromi 桌宠");
-
-  const buildMenu = () =>
-    Menu.buildFromTemplate([
-      {
-        label: "开机自启",
-        type: "checkbox",
-        checked: isAutoLaunchEnabled(),
-        click: (item) => {
-          setAutoLaunch(item.checked);
-        }
-      },
-      { type: "separator" },
-      {
-        label: "退出",
-        click: () => {
-          app.quit();
-        }
-      }
-    ]);
-
-  tray.setContextMenu(buildMenu());
-  tray.on("click", () => tray.setContextMenu(buildMenu()));
+  tray.setToolTip(t(currentLocale, "tray.tooltip"));
+  tray.setContextMenu(buildTrayMenu());
+  tray.on("click", () => tray.setContextMenu(buildTrayMenu()));
 }
 
 const gotSingleInstanceLock = app.requestSingleInstanceLock();
@@ -116,6 +154,7 @@ if (!gotSingleInstanceLock) {
   });
 
   app.whenReady().then(() => {
+    currentLocale = resolveLocale(readLocale(app), app.getLocale());
     app.dock?.hide();
     createWindow();
     createTray();
@@ -130,6 +169,13 @@ if (!gotSingleInstanceLock) {
 
 app.on("window-all-closed", () => {
   // Keep running as a tray-only app; quit happens from the tray menu.
+});
+
+ipcMain.handle("locale:get", () => currentLocale);
+
+ipcMain.handle("locale:set", (_event, locale) => {
+  setLocale(locale);
+  return currentLocale;
 });
 
 ipcMain.handle("cursor:get-position", () => screen.getCursorScreenPoint());

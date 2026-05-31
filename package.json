@@ -1,0 +1,76 @@
+{
+  "name": "kuromi-desktop-pet",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite --host 127.0.0.1",
+    "start": "electron .",
+    "app": "concurrently -k \"npm:dev\" \"wait-on tcp:5173 && KUROMI_DEV_SERVER=1 electron .\"",
+    "build": "vite build",
+    "dist:win": "npm run build && electron-builder --win --x64",
+    "dist:mac": "npm run build && electron-builder --mac"
+  },
+  "main": "electron/main.cjs",
+  "dependencies": {},
+  "devDependencies": {
+    "concurrently": "^10.0.0",
+    "electron": "^42.3.0",
+    "electron-builder": "^25.1.8",
+    "live2dcubismcore": "^1.0.2",
+    "pixi-live2d-display": "^0.4.0",
+    "pixi.js": "^6.5.10",
+    "vite": "^8.0.14",
+    "wait-on": "^9.0.10"
+  },
+  "build": {
+    "appId": "com.kuromi.desktoppet",
+    "productName": "Kuromi",
+    "asar": true,
+    "asarUnpack": [
+      "dist/kuromi/**"
+    ],
+    "files": [
+      "dist/**/*",
+      "electron/**/*",
+      "package.json",
+      "!dist/kuromi/*.cmo3",
+      "!dist/kuromi/kuromi.4096/**"
+    ],
+    "directories": {
+      "output": "release",
+      "buildResources": "build"
+    },
+    "win": {
+      "icon": "build/icon.png",
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        },
+        {
+          "target": "portable",
+          "arch": [
+            "x64"
+          ]
+        }
+      ]
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "Kuromi"
+    },
+    "portable": {
+      "artifactName": "Kuromi-${version}-portable.exe"
+    },
+    "mac": {
+      "icon": "build/icon.png"
+    }
+  }
+}

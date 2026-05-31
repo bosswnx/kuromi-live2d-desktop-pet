@@ -1,0 +1,58 @@
+# Dependencies
+node_modules/
+
+# Build outputs
+dist/
+release/
+out/
+
+# Vite
+.vite/
+
+# Environment & secrets
+.env
+.env.*
+!.env.example
+
+# Logs & debug
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# OS
+.DS_Store
+Thumbs.db
+Desktop.ini
+
+# Editors & IDEs
+.idea/
+*.swp
+*.swo
+*~
+.project
+.classpath
+.settings/
+
+# Optional: keep .vscode if you add shared workspace settings later
+# .vscode/
+
+# Electron / electron-builder
+*.blockmap
+builder-debug.yml
+builder-effective-config.yaml
+
+# Test & coverage
+coverage/
+.nyc_output/
+
+# Misc caches
+.cache/
+*.tsbuildinfo
+.eslintcache
+.turbo/
+
+# Local overrides
+*.local

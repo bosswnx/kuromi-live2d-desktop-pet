@@ -1,7 +1,7 @@
 const { app, BrowserWindow, ipcMain, screen, Tray, Menu, nativeImage } = require("electron");
 const path = require("node:path");
 const { resolveLocale, normalizeLocale, t } = require("./i18n.cjs");
-const { readLocale, writeLocale } = require("./settings.cjs");
+const { readLocale, writeLocale, readModel, writeModel } = require("./settings.cjs");
 
 const devServerUrl = process.env.KUROMI_DEV_SERVER ? "http://127.0.0.1:5173" : "";
 const debug = Boolean(process.env.KUROMI_DEBUG);
@@ -14,9 +14,18 @@ const trayIconPath = path.join(__dirname, "assets", "tray.png");
 let mainWindow;
 let tray;
 let currentLocale = "zh";
+let currentModel = "2d";
 
 function broadcastLocale() {
   mainWindow?.webContents.send("locale:changed", currentLocale);
+}
+
+function normalizeModel(model) {
+  return model === "3d" ? "3d" : "2d";
+}
+
+function broadcastModel() {
+  mainWindow?.webContents.send("model:changed", currentModel);
 }
 
 function setLocale(locale) {
@@ -31,6 +40,19 @@ function setLocale(locale) {
   tray?.setToolTip(t(currentLocale, "tray.tooltip"));
   tray?.setContextMenu(buildTrayMenu());
   broadcastLocale();
+}
+
+function setModel(model) {
+  const next = normalizeModel(model);
+
+  if (next === currentModel) {
+    return;
+  }
+
+  currentModel = next;
+  writeModel(app, currentModel);
+  tray?.setContextMenu(buildTrayMenu());
+  broadcastModel();
 }
 
 function createWindow() {
@@ -108,6 +130,23 @@ function buildTrayMenu() {
       }
     },
     {
+      label: t(currentLocale, "tray.model"),
+      submenu: [
+        {
+          label: t(currentLocale, "tray.model3d"),
+          type: "radio",
+          checked: currentModel === "3d",
+          click: () => setModel("3d")
+        },
+        {
+          label: t(currentLocale, "tray.model2d"),
+          type: "radio",
+          checked: currentModel === "2d",
+          click: () => setModel("2d")
+        }
+      ]
+    },
+    {
       label: t(currentLocale, "tray.language"),
       submenu: [
         {
@@ -155,6 +194,7 @@ if (!gotSingleInstanceLock) {
 
   app.whenReady().then(() => {
     currentLocale = resolveLocale(readLocale(app), app.getLocale());
+    currentModel = normalizeModel(readModel(app));
     app.dock?.hide();
     createWindow();
     createTray();
@@ -176,6 +216,13 @@ ipcMain.handle("locale:get", () => currentLocale);
 ipcMain.handle("locale:set", (_event, locale) => {
   setLocale(locale);
   return currentLocale;
+});
+
+ipcMain.handle("model:get", () => currentModel);
+
+ipcMain.handle("model:set", (_event, model) => {
+  setModel(model);
+  return currentModel;
 });
 
 ipcMain.handle("cursor:get-position", () => screen.getCursorScreenPoint());

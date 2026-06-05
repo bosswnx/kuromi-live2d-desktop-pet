@@ -5,9 +5,10 @@ import { initI18n, pickSpeechLine, t } from "./i18n.js";
 
 window.PIXI = PIXI;
 
-// Resolve the model relative to the current document so it works both under the
-// Vite dev server (http://) and the packaged build loaded via file://.
-const MODEL_PATH = new URL("kuromi/kuromi.model3.json", document.baseURI).href;
+const MODELS = {
+  "2d": new URL("kuromi/kuromi.model3.json", document.baseURI).href,
+  "3d": new URL("kuromi-3d/kuromi-3d.model3.json", document.baseURI).href
+};
 
 const PARAMS = {
   angleX: "ParamAngleX",
@@ -33,11 +34,14 @@ window.addEventListener("unhandledrejection", (event) =>
 );
 
 let model;
+let selectedModel = "2d";
 let speakingUntil = 0;
 let cursorTarget = { x: 0, y: 0 };
 let smoothed = { x: 0, y: 0 };
 let dragState = null;
 let mouseIgnored = true;
+let Live2DModelClass;
+let modelLoadToken = 0;
 
 const app = new PIXI.Application({
   view: canvas,
@@ -64,6 +68,10 @@ function setParameter(id, value, weight = 1) {
   if (coreModel?.setParameterValueById) {
     coreModel.setParameterValueById(id, value, weight);
   }
+}
+
+function normalizeModel(value) {
+  return value === "3d" ? "3d" : "2d";
 }
 
 function say(text = pickSpeechLine(), duration = 4200) {
@@ -126,6 +134,38 @@ function resize() {
   model.position.set(window.innerWidth / 2, window.innerHeight * 0.5);
 }
 
+async function mountModel(modelKey) {
+  const nextModel = normalizeModel(modelKey);
+  const modelPath = MODELS[nextModel];
+
+  if (!Live2DModelClass || !modelPath) {
+    return;
+  }
+
+  const loadToken = ++modelLoadToken;
+
+  const previousModel = model;
+  selectedModel = nextModel;
+  model = undefined;
+
+  if (previousModel) {
+    app.stage.removeChild(previousModel);
+    previousModel.destroy();
+  }
+
+  const nextInstance = await Live2DModelClass.from(modelPath, { autoInteract: false });
+
+  if (loadToken !== modelLoadToken) {
+    nextInstance.destroy();
+    return;
+  }
+
+  model = nextInstance;
+  app.stage.addChild(model);
+  resize();
+  log("info", `model loaded: ${selectedModel}`);
+}
+
 const pixelBuffer = new Uint8Array(4);
 
 // Pixel-perfect hit test against the rendered frame so the window only grabs the
@@ -174,17 +214,20 @@ async function boot() {
   await initI18n();
   await loadScript(cubismCoreUrl);
   const { Live2DModel } = await import("pixi-live2d-display/cubism4");
+  Live2DModelClass = Live2DModel;
 
-  model = await Live2DModel.from(MODEL_PATH, { autoInteract: false });
-
-  app.stage.addChild(model);
-  resize();
-  log("info", "model loaded");
+  selectedModel = normalizeModel(await desktopApi?.getModel?.());
+  await mountModel(selectedModel);
 
   say(t("speech.welcome"), 5200);
   scheduleRandomLine();
 
   window.setInterval(updateCursorTarget, 33);
+  desktopApi?.onModelChanged?.((nextModel) => {
+    mountModel(nextModel).catch((error) => {
+      log("error", error?.stack || error);
+    });
+  });
 }
 
 app.ticker.add(() => {

@@ -1,0 +1,23 @@
+{
+	"Version": 3,
+	"FileReferences": {
+		"Moc": "kuromi-3d.moc3",
+		"Textures": [
+			"kuromi-3d.8192/texture_00.png"
+		],
+		"Physics": "kuromi-3d.physics3.json",
+		"DisplayInfo": "kuromi-3d.cdi3.json"
+	},
+	"Groups": [
+		{
+			"Target": "Parameter",
+			"Name": "EyeBlink",
+			"Ids": []
+		},
+		{
+			"Target": "Parameter",
+			"Name": "LipSync",
+			"Ids": []
+		}
+	]
+}

@@ -5,6 +5,9 @@
   "tray": {
     "tooltip": "Kuromi 桌宠",
     "autoLaunch": "开机自启",
+    "model": "模型",
+    "model3d": "3D",
+    "model2d": "2D",
     "language": "语言",
     "langZh": "中文",
     "langEn": "English",

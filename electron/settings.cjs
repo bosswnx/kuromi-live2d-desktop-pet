@@ -29,7 +29,31 @@ function writeLocale(app, locale) {
   writeSettings(app, settings);
 }
 
+function readModel(app) {
+  return readSettings(app).model ?? null;
+}
+
+function writeModel(app, model) {
+  const settings = readSettings(app);
+  settings.model = model;
+  writeSettings(app, settings);
+}
+
+function readAlwaysOnTop(app) {
+  return readSettings(app).alwaysOnTop ?? null;
+}
+
+function writeAlwaysOnTop(app, alwaysOnTop) {
+  const settings = readSettings(app);
+  settings.alwaysOnTop = Boolean(alwaysOnTop);
+  writeSettings(app, settings);
+}
+
 module.exports = {
   readLocale,
-  writeLocale
+  writeLocale,
+  readModel,
+  writeModel,
+  readAlwaysOnTop,
+  writeAlwaysOnTop
 };

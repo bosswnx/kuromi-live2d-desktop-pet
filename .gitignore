@@ -56,3 +56,6 @@ coverage/
 
 # Local overrides
 *.local
+
+# WorkBuddy workspace memory
+.workbuddy/

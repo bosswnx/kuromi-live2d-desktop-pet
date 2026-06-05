@@ -5,9 +5,10 @@ import { initI18n, pickSpeechLine, t } from "./i18n.js";
 
 window.PIXI = PIXI;
 
-// Resolve the model relative to the current document so it works both under the
-// Vite dev server (http://) and the packaged build loaded via file://.
-const MODEL_PATH = new URL("kuromi/kuromi.model3.json", document.baseURI).href;
+const MODELS = {
+  "2d": new URL("kuromi/kuromi-2d.model3.json", document.baseURI).href,
+  "3d": new URL("kuromi-3d/kuromi-3d.model3.json", document.baseURI).href
+};
 
 const PARAMS = {
   angleX: "ParamAngleX",
@@ -16,6 +17,8 @@ const PARAMS = {
   bodyX: "ParamBodyAngleX",
   bodyY: "ParamBodyAngleY",
   breath: "ParamBreath",
+  eyeLeftOpen: "ParamEyeLOpen",
+  eyeRightOpen: "ParamEyeROpen",
   mouthOpen: "ParamMouthOpenY",
   mouthForm: "ParamMouthForm",
   cheek: "ParamCheek"
@@ -33,11 +36,17 @@ window.addEventListener("unhandledrejection", (event) =>
 );
 
 let model;
+let selectedModel = "2d";
 let speakingUntil = 0;
+let speakingStartedAt = 0;
 let cursorTarget = { x: 0, y: 0 };
 let smoothed = { x: 0, y: 0 };
 let dragState = null;
 let mouseIgnored = true;
+let Live2DModelClass;
+let modelLoadToken = 0;
+let parameterRanges = new Map();
+let blinkState = createBlinkState();
 
 const app = new PIXI.Application({
   view: canvas,
@@ -58,21 +67,139 @@ function lerp(from, to, amount) {
   return from + (to - from) * amount;
 }
 
+function randomBetween(min, max) {
+  return min + Math.random() * (max - min);
+}
+
+function createBlinkState(now = performance.now()) {
+  return {
+    nextAt: now + randomBetween(900, 1800),
+    closeMs: randomBetween(55, 80),
+    holdMs: randomBetween(30, 55),
+    openMs: randomBetween(90, 130)
+  };
+}
+
+function scheduleNextBlink(now = performance.now()) {
+  blinkState = {
+    nextAt: now + randomBetween(2400, 5200),
+    closeMs: randomBetween(55, 80),
+    holdMs: randomBetween(30, 55),
+    openMs: randomBetween(90, 130)
+  };
+}
+
+function getCoreModel() {
+  return model?.internalModel?.coreModel;
+}
+
 function setParameter(id, value, weight = 1) {
-  const coreModel = model?.internalModel?.coreModel;
+  const coreModel = getCoreModel();
 
   if (coreModel?.setParameterValueById) {
     coreModel.setParameterValueById(id, value, weight);
   }
 }
 
+function addParameter(id, value, weight = 1) {
+  const coreModel = getCoreModel();
+
+  if (coreModel?.addParameterValueById) {
+    coreModel.addParameterValueById(id, value, weight);
+  }
+}
+
+function getParameterRange(id, fallback = { min: 0, max: 1, defaultValue: 0 }) {
+  const cached = parameterRanges.get(id);
+
+  if (cached) {
+    return cached;
+  }
+
+  const coreModel = getCoreModel();
+  const index = coreModel?.getParameterIndex?.(id);
+
+  if (!Number.isInteger(index) || index < 0) {
+    return fallback;
+  }
+
+  const min = coreModel.getParameterMinimumValue?.(index);
+  const max = coreModel.getParameterMaximumValue?.(index);
+  const defaultValue = coreModel.getParameterDefaultValue?.(index);
+  const range = {
+    min: Number.isFinite(min) ? min : fallback.min,
+    max: Number.isFinite(max) ? max : fallback.max,
+    defaultValue: fallback.defaultValue
+  };
+
+  range.defaultValue = clamp(
+    Number.isFinite(defaultValue) ? defaultValue : fallback.defaultValue,
+    range.min,
+    range.max
+  );
+
+  parameterRanges.set(id, range);
+  return range;
+}
+
+function getAnimatedTarget(range, preferredEdge) {
+  if (preferredEdge === "min") {
+    return range.min;
+  }
+
+  if (preferredEdge === "max") {
+    return range.max;
+  }
+
+  const distanceToMin = Math.abs(range.defaultValue - range.min);
+  const distanceToMax = Math.abs(range.defaultValue - range.max);
+  return distanceToMin >= distanceToMax ? range.min : range.max;
+}
+
+function mixParameter(range, amount, preferredEdge = "opposite-default") {
+  const target = getAnimatedTarget(range, preferredEdge);
+  return clamp(lerp(range.defaultValue, target, amount), range.min, range.max);
+}
+
+function getBlinkAmount(now = performance.now()) {
+  if (now < blinkState.nextAt) {
+    return 0;
+  }
+
+  const elapsed = now - blinkState.nextAt;
+  const closingEnd = blinkState.closeMs;
+  const holdEnd = closingEnd + blinkState.holdMs;
+  const openingEnd = holdEnd + blinkState.openMs;
+
+  if (elapsed >= openingEnd) {
+    scheduleNextBlink(now);
+    return 0;
+  }
+
+  if (elapsed < closingEnd) {
+    return clamp(elapsed / blinkState.closeMs, 0, 1);
+  }
+
+  if (elapsed < holdEnd) {
+    return 1;
+  }
+
+  return clamp(1 - (elapsed - holdEnd) / blinkState.openMs, 0, 1);
+}
+
+function normalizeModel(value) {
+  return value === "3d" ? "3d" : "2d";
+}
+
 function say(text = pickSpeechLine(), duration = 4200) {
   speech.textContent = text;
   speech.classList.add("visible");
   speakingUntil = performance.now() + duration;
+  speakingStartedAt = performance.now();
 
   window.clearTimeout(say.hideTimer);
   say.hideTimer = window.setTimeout(() => {
+    speakingUntil = 0;
     speech.classList.remove("visible");
   }, duration);
 }
@@ -126,6 +253,47 @@ function resize() {
   model.position.set(window.innerWidth / 2, window.innerHeight * 0.5);
 }
 
+async function mountModel(modelKey) {
+  const nextModel = normalizeModel(modelKey);
+  const modelPath = MODELS[nextModel];
+
+  if (!Live2DModelClass || !modelPath) {
+    return;
+  }
+
+  const loadToken = ++modelLoadToken;
+
+  const previousModel = model;
+  selectedModel = nextModel;
+  model = undefined;
+  parameterRanges = new Map();
+  blinkState = createBlinkState();
+
+  if (previousModel) {
+    app.stage.removeChild(previousModel);
+    previousModel.destroy();
+  }
+
+  const nextInstance = await Live2DModelClass.from(modelPath, { autoInteract: false });
+
+  if (loadToken !== modelLoadToken) {
+    nextInstance.destroy();
+    return;
+  }
+
+  model = nextInstance;
+  app.stage.addChild(model);
+  nextInstance.internalModel.on("beforeModelUpdate", () => {
+    if (model !== nextInstance) {
+      return;
+    }
+
+    applyAnimatedParameters();
+  });
+  resize();
+  log("info", `model loaded: ${selectedModel}`);
+}
+
 const pixelBuffer = new Uint8Array(4);
 
 // Pixel-perfect hit test against the rendered frame so the window only grabs the
@@ -170,50 +338,68 @@ function updatePassthrough(clientX, clientY) {
   setMouseIgnored(!(overSpeech || isOverModel(clientX, clientY)));
 }
 
-async function boot() {
-  await initI18n();
-  await loadScript(cubismCoreUrl);
-  const { Live2DModel } = await import("pixi-live2d-display/cubism4");
-
-  model = await Live2DModel.from(MODEL_PATH, { autoInteract: false });
-
-  app.stage.addChild(model);
-  resize();
-  log("info", "model loaded");
-
-  say(t("speech.welcome"), 5200);
-  scheduleRandomLine();
-
-  window.setInterval(updateCursorTarget, 33);
-}
-
-app.ticker.add(() => {
+function applyAnimatedParameters(now = performance.now()) {
   if (!model) {
     return;
   }
 
-  const seconds = performance.now() / 1000;
+  const seconds = now / 1000;
 
   smoothed.x = lerp(smoothed.x, clamp(cursorTarget.x, -1, 1), 0.08);
   smoothed.y = lerp(smoothed.y, clamp(cursorTarget.y, -1, 1), 0.08);
 
   const angleX = clamp(smoothed.x * 36, -30, 30);
   const angleY = clamp(-smoothed.y * 28, -24, 24);
-  const breath = 0.5 + Math.sin(seconds * 2.1) * 0.35;
-  const talking = performance.now() < speakingUntil;
-  const mouth = talking ? 0.35 + Math.abs(Math.sin(seconds * 12)) * 1.15 : 0;
+  const talking = now < speakingUntil;
+  const blinkAmount = getBlinkAmount(now);
+  const eyeLeftRange = getParameterRange(PARAMS.eyeLeftOpen, { min: 0, max: 1, defaultValue: 1 });
+  const eyeRightRange = getParameterRange(PARAMS.eyeRightOpen, { min: 0, max: 1, defaultValue: 1 });
+  const mouthRange = getParameterRange(PARAMS.mouthOpen);
+  const mouthFormRange = getParameterRange(PARAMS.mouthForm, { min: -1, max: 1, defaultValue: 0 });
+  const mouthPulse = talking && (seconds - speakingStartedAt / 1000) < 3 * Math.PI / 12.8
+    ? 0.24 + Math.abs(Math.sin(seconds * 12.8)) * 0.76
+    : 0;
+  const eyeLeft = mixParameter(eyeLeftRange, blinkAmount);
+  const eyeRight = mixParameter(eyeRightRange, blinkAmount);
+  const mouth = talking ? mixParameter(mouthRange, mouthPulse) : mouthRange.defaultValue;
+  const mouthForm = talking
+    ? mixParameter(mouthFormRange, 0.42, "max")
+    : mouthFormRange.defaultValue;
   const cheek = talking ? 0.18 + Math.sin(seconds * 4) * 0.08 : 0;
+  const breath = -0.85 * Math.cos(seconds * 2 * Math.PI / 12);
 
-  setParameter(PARAMS.angleX, angleX);
-  setParameter(PARAMS.angleY, angleY);
-  setParameter(PARAMS.angleZ, clamp(-angleX * 0.18, -8, 8));
-  setParameter(PARAMS.bodyX, clamp(angleX * 0.32, -10, 10));
-  setParameter(PARAMS.bodyY, clamp(angleY * 0.26, -10, 10));
-  setParameter(PARAMS.breath, clamp(breath, 0, 1));
-  setParameter(PARAMS.mouthForm, talking ? 0.7 : 0.15);
-  setParameter(PARAMS.mouthOpen, clamp(mouth, 0, 1.7));
+  addParameter(PARAMS.angleX, angleX);
+  addParameter(PARAMS.angleY, angleY);
+  addParameter(PARAMS.angleZ, clamp(-angleX * 0.18, -8, 8));
+  addParameter(PARAMS.bodyX, clamp(angleX * 0.32, -10, 10));
+  addParameter(PARAMS.bodyY, clamp(angleY * 0.26, -10, 10));
+  setParameter(PARAMS.eyeLeftOpen, eyeLeft);
+  setParameter(PARAMS.eyeRightOpen, eyeRight);
+  setParameter(PARAMS.mouthForm, mouthForm);
+  setParameter(PARAMS.mouthOpen, mouth);
   setParameter(PARAMS.cheek, clamp(cheek, 0, 1));
-});
+  setParameter(PARAMS.breath, breath);
+};
+
+async function boot() {
+  await initI18n();
+  await loadScript(cubismCoreUrl);
+  const { Live2DModel } = await import("pixi-live2d-display/cubism4");
+  Live2DModelClass = Live2DModel;
+
+  selectedModel = normalizeModel(await desktopApi?.getModel?.());
+  await mountModel(selectedModel);
+
+  say(t("speech.welcome"), 5200);
+  scheduleRandomLine();
+
+  window.setInterval(updateCursorTarget, 33);
+  desktopApi?.onModelChanged?.((nextModel) => {
+    mountModel(nextModel).catch((error) => {
+      log("error", error?.stack || error);
+    });
+  });
+}
 
 window.addEventListener("resize", resize);
 

@@ -1,12 +1,12 @@
 {
 	"Version": 3,
 	"FileReferences": {
-		"Moc": "kuromi.moc3",
+		"Moc": "kuromi-3d.moc3",
 		"Textures": [
-			"kuromi.8192/texture_00.png"
+			"kuromi-3d.8192/texture_00.png"
 		],
-		"Physics": "kuromi.physics3.json",
-		"DisplayInfo": "kuromi.cdi3.json"
+		"Physics": "kuromi-3d.physics3.json",
+		"DisplayInfo": "kuromi-3d.cdi3.json"
 	},
 	"Groups": [
 		{

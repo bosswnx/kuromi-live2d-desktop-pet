@@ -1,6 +1,6 @@
 {
   "name": "kuromi-desktop-pet",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "license": "MIT",
   "private": true,
   "type": "module",
@@ -26,7 +26,7 @@
   },
   "build": {
     "appId": "com.kuromi.desktoppet",
-    "productName": "Kuromi",
+    "productName": "kuromi-desktop-pet",
     "asar": true,
     "asarUnpack": [
       "dist/kuromi/**"
@@ -66,10 +66,10 @@
       "allowToChangeInstallationDirectory": true,
       "createDesktopShortcut": true,
       "createStartMenuShortcut": true,
-      "shortcutName": "Kuromi"
+      "shortcutName": "kuromi-desktop-pet"
     },
     "portable": {
-      "artifactName": "Kuromi-${version}-portable.exe"
+      "artifactName": "kuromi-desktop-pet-${version}-portable.exe"
     },
     "mac": {
       "icon": "build/icon.png"

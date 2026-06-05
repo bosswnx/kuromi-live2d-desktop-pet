@@ -1,7 +1,7 @@
 const { app, BrowserWindow, ipcMain, screen, Tray, Menu, nativeImage } = require("electron");
 const path = require("node:path");
 const { resolveLocale, normalizeLocale, t } = require("./i18n.cjs");
-const { readLocale, writeLocale } = require("./settings.cjs");
+const { readLocale, writeLocale, readModel, writeModel, readAlwaysOnTop, writeAlwaysOnTop } = require("./settings.cjs");
 
 const devServerUrl = process.env.KUROMI_DEV_SERVER ? "http://127.0.0.1:5173" : "";
 const debug = Boolean(process.env.KUROMI_DEBUG);
@@ -10,13 +10,24 @@ const WINDOW_WIDTH = 360;
 const WINDOW_HEIGHT = 480;
 
 const trayIconPath = path.join(__dirname, "assets", "tray.png");
+const macTrayEmoji = "🖤";
 
 let mainWindow;
 let tray;
 let currentLocale = "zh";
+let currentModel = "2d";
+let alwaysOnTopEnabled = false;
 
 function broadcastLocale() {
   mainWindow?.webContents.send("locale:changed", currentLocale);
+}
+
+function normalizeModel(model) {
+  return model === "3d" ? "3d" : "2d";
+}
+
+function broadcastModel() {
+  mainWindow?.webContents.send("model:changed", currentModel);
 }
 
 function setLocale(locale) {
@@ -31,6 +42,26 @@ function setLocale(locale) {
   tray?.setToolTip(t(currentLocale, "tray.tooltip"));
   tray?.setContextMenu(buildTrayMenu());
   broadcastLocale();
+}
+
+function setModel(model) {
+  const next = normalizeModel(model);
+
+  if (next === currentModel) {
+    return;
+  }
+
+  currentModel = next;
+  writeModel(app, currentModel);
+  tray?.setContextMenu(buildTrayMenu());
+  broadcastModel();
+}
+
+function setAlwaysOnTop(enabled) {
+  alwaysOnTopEnabled = Boolean(enabled);
+  writeAlwaysOnTop(app, alwaysOnTopEnabled);
+  mainWindow?.setAlwaysOnTop(alwaysOnTopEnabled);
+  tray?.setContextMenu(buildTrayMenu());
 }
 
 function createWindow() {
@@ -61,7 +92,7 @@ function createWindow() {
   // A normal, never-on-top window: it stacks like any other window (so other
   // apps cover it), and starts click-through. The renderer turns interaction on
   // only when the cursor is over an opaque pixel of the model.
-  mainWindow.setAlwaysOnTop(false);
+  mainWindow.setAlwaysOnTop(alwaysOnTopEnabled);
   mainWindow.setIgnoreMouseEvents(true, { forward: true });
 
   mainWindow.webContents.on("console-message", (_event, level, message, line, sourceId) => {
@@ -108,6 +139,31 @@ function buildTrayMenu() {
       }
     },
     {
+      label: t(currentLocale, "tray.alwaysOnTop"),
+      type: "checkbox",
+      checked: alwaysOnTopEnabled,
+      click: (item) => {
+        setAlwaysOnTop(item.checked);
+      }
+    },
+    {
+      label: t(currentLocale, "tray.model"),
+      submenu: [
+        {
+          label: t(currentLocale, "tray.model3d"),
+          type: "radio",
+          checked: currentModel === "3d",
+          click: () => setModel("3d")
+        },
+        {
+          label: t(currentLocale, "tray.model2d"),
+          type: "radio",
+          checked: currentModel === "2d",
+          click: () => setModel("2d")
+        }
+      ]
+    },
+    {
       label: t(currentLocale, "tray.language"),
       submenu: [
         {
@@ -134,8 +190,20 @@ function buildTrayMenu() {
   ]);
 }
 
+function createTrayIcon() {
+  if (process.platform !== "darwin") {
+    return nativeImage.createFromPath(trayIconPath);
+  }
+
+  return nativeImage.createEmpty();
+}
+
 function createTray() {
-  tray = new Tray(nativeImage.createFromPath(trayIconPath));
+  tray = new Tray(createTrayIcon());
+
+  if (process.platform === "darwin") {
+    tray.setTitle(macTrayEmoji);
+  }
 
   tray.setToolTip(t(currentLocale, "tray.tooltip"));
   tray.setContextMenu(buildTrayMenu());
@@ -155,6 +223,8 @@ if (!gotSingleInstanceLock) {
 
   app.whenReady().then(() => {
     currentLocale = resolveLocale(readLocale(app), app.getLocale());
+    currentModel = normalizeModel(readModel(app));
+    alwaysOnTopEnabled = Boolean(readAlwaysOnTop(app));
     app.dock?.hide();
     createWindow();
     createTray();
@@ -176,6 +246,13 @@ ipcMain.handle("locale:get", () => currentLocale);
 ipcMain.handle("locale:set", (_event, locale) => {
   setLocale(locale);
   return currentLocale;
+});
+
+ipcMain.handle("model:get", () => currentModel);
+
+ipcMain.handle("model:set", (_event, model) => {
+  setModel(model);
+  return currentModel;
 });
 
 ipcMain.handle("cursor:get-position", () => screen.getCursorScreenPoint());

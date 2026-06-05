@@ -14,7 +14,10 @@ A lightweight desktop pet featuring Kuromi as a [Live2D](https://www.live2d.com/
 - **Drag to move** — Grab the character to reposition the window
 - **Click to chat** — Tap Kuromi for random dialogue bubbles; occasional idle lines
 - **Eye / body tracking** — Follows your cursor across the screen
-- **System tray** — Launch at login, language switch, quit
+- **2D / 3D model switching** — Switch between model variants from the tray menu
+- **Breathing & idle animations** — Natural breathing and blinking cycles
+- **Speech bubbles** — Random dialogue with animated mouth movement
+- **System tray** — Launch at login, model switch, language switch, quit
 - **English & 中文** — UI and speech lines; preference is saved between sessions
 
 ## Requirements
@@ -57,7 +60,7 @@ Opens detached DevTools for the pet window.
 |--------|--------|
 | **Drag** the character | Move the pet window |
 | **Click** the character | Show a random line |
-| **Tray icon** (menu bar / system tray) | Launch at login, **Language** (中文 / English), **Quit** |
+| **Tray icon** (menu bar / system tray) | Launch at login, **Model** (2D / 3D), **Language** (中文 / English), **Quit** |
 
 On first launch, language follows your OS locale (`zh*` → Chinese, otherwise English). You can change it anytime from the tray menu.
 

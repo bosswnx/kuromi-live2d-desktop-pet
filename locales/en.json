@@ -5,6 +5,10 @@
   "tray": {
     "tooltip": "Kuromi Desktop Pet",
     "autoLaunch": "Launch at login",
+    "alwaysOnTop": "Always on Top",
+    "model": "Model",
+    "model3d": "3D",
+    "model2d": "2D",
     "language": "Language",
     "langZh": "中文",
     "langEn": "English",

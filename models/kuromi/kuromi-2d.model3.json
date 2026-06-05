@@ -1,0 +1,10 @@
+{
+	"Version": 3,
+	"FileReferences": {
+		"Moc": "kuromi-2d.moc3",
+		"Textures": [
+			"kuromi-2d.1024/texture_00.png"
+		],
+		"DisplayInfo": "kuromi-2d.cdi3.json"
+	}
+}
